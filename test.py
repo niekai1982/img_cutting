@@ -12,6 +12,7 @@ show_flag : result showflag
 '''
 
 import os
+import cv2
 import sys
 import scipy
 import argparse
@@ -93,46 +94,6 @@ def solveAlpha(I, consts_map, consts_vals, thr_alpha=0.02):
     return alpha
 
 
-def get_mI(I):
-    h, w = I.shape[:2]
-    mI = I.copy()
-    mI[:2 * h / 3, :w / 20] = 0
-    mI[:2 * h / 3, -w / 20:] = 0
-    mI[-h / 10:, (w / 2 - 15):(w / 2 + 15)] = 1
-    mI[h / 10:, (w / 2 - 5):(w / 2 + 5)] = 1
-    mI[-h / 30:, :] = 1
-    return mI
-
-
-def get_mI_test(I):
-    h, w = I.shape[:2]
-    mI = I.copy()
-    threshold = np.sum(I[:30,:30]) / (30 * 30)
-    binI = np.sum(I, axis=2) < threshold - 0.1
-    for i in range(5):
-        binI = morphology.dilation(binI, np.ones((3,3)))
-    for i in range(10):
-        binI = morphology.erosion(binI, np.ones((3,3)))
-
-    binI_r = 1 - binI
-    for i in range(10):
-        binI_r = morphology.erosion(binI_r, np.ones((3,3)))
-    binI_r = binI_r > 0
-    for i in range(5):
-        binI = morphology.erosion(binI, np.ones((3,3)))
-
-
-    mI[binI_r] = 0
-    print binI.shape
-    # mI[-h / 10:, (w / 2 - 15):(w / 2 + 15)] = 1
-    # mI[h / 10:, (w / 2 - 5):(w / 2 + 5)] = 1
-    # mI[-h / 30:, :] = 1
-    mI[binI] = 1
-    plt.imshow(mI)
-    plt.show()
-    return mI
-
-
 def get_mI_test1(I):
     h, w = I.shape[:2]
     mI = I.copy()
@@ -171,30 +132,22 @@ def get_mI_test_temp(I):
     h, w = I.shape[:2]
     mI = I.copy()
 
-    gradI_r = filters.sobel(mI[:,:,0])
-    gradI_g = filters.sobel(mI[:,:,1])
-    gradI_b = filters.sobel(mI[:,:,2])
+    # thr = I[:10,:10,:].mean()
+    gray = mI[:,:,0]
+    edge = cv2.Sobel(gray,-1,1,1)
 
-    gradI = gradI_r * gradI_r + gradI_b * gradI_b + gradI_g * gradI_g
 
-    mask   = gradI > 0.0001
-    mask_g = gradI < 0.0001
+    # mask   = gradI > 0.0001
+    # mask_g = gradI < 0.0001
+    mask = np.abs(I.mean(axis=2) - thr) < 0.05
+    # for i in range(2):
+    #     mask_b = morphology.erosion(mask_b,np.ones((3,3)))
+    # mask = mask_b + mask_m
+    mI[mask] = 0
 
-    for i in range(2):
-        mask_g = morphology.erosion(mask_g,np.ones((3,3)))
-    for i in range(2):
-        mask = morphology.erosion(mask,np.ones((3,3)))
+    # mI[:2 * h / 3, :w / 20] = 0
+    # mI[:2 * h / 3, -w / 20:] = 0
 
-    mask = mask * (gradI < gradI.mean()/4) * (np.sum(I, axis=2) > 2.6)
-
-    mask[:h * 4 / 5,:] = False
-    mask_g[h * 2 / 3:,:] = False
-
-    mI[mask] = 1
-    mI[mask_g] = 0
-
-    mI[:2 * h / 3, :w / 20] = 0
-    mI[:2 * h / 3, -w / 20:] = 0
     mI[h / 7:, (w / 2 - w / 8):(w / 2 + w / 8)] = 1
     mI[-h / 30:, :] = 1
 
@@ -230,7 +183,7 @@ def change_backgroud(src_path, save_path, speed_flag = 2, save_flag=1, show_flag
         I = I_src[::speed_flag, ::speed_flag]
         I = I.astype(np.double) / 255
 
-        mI = get_mI_test1(I)
+        mI = get_mI_test_temp(I)
 
         consts_map = np.sum(np.abs(I - mI), axis=2) > 0.001
 
@@ -269,8 +222,8 @@ def change_backgroud(src_path, save_path, speed_flag = 2, save_flag=1, show_flag
     return "process succeed"
 
 if __name__ == '__main__':
-    srcPath = r'E:\PROGRAM\IMG_CUTTING\data\data'
-    savePath = r'E:\PROGRAM\IMG_CUTTING\data\data_res'
-    res = change_backgroud(src_path=srcPath,save_path=savePath,show_flag=1,save_flag=0,speed_flag=2)
+    srcPath = r'E:\PROGRAM\IMG_CUTTING\data\extr'
+    savePath = r'E:\PROGRAM\IMG_CUTTING\data\extr_res'
+    res = change_backgroud(src_path=srcPath,save_path=savePath,show_flag=1,save_flag=0,speed_flag=4)
     print res
     # pass
