@@ -153,6 +153,69 @@ def get_mI_test_temp(I):
 
     return mI
 
+def get_mask(I):
+    h, w = I.shape[:2]
+    mI = I.copy()
+    kernel = np.ones((10,10), dtype=np.int)
+
+    r = mI[:,:,0]
+    g = mI[:,:,1]
+    b = mI[:,:,2]
+
+    gray = I[:,:,0]
+    edge = cv2.Sobel(gray, -1, 1, 1)
+    edge = np.abs(edge)
+    
+#    edge = edge > 10
+#    edge = edge.astype(np.uint8)
+#    
+#    edge_filter = cv2.filter2D(edge, -1, kernel)
+
+    mask_edge = (gray > 0.7) * (edge > 0.1)
+    
+    mask_test = np.dstack((np.abs(r-g),np.abs(r-b),np.abs(g-b)))
+    mask_color = mask_test.max(axis=2) > 0.1
+    
+   
+    mask_hair = (r + g + b)/3 < 0.6
+    
+    
+    mask_test = mask_hair + mask_color
+    mask_test = cv2.filter2D(mask_test.astype(np.uint8), -1, kernel)
+    
+    C = mask_edge.astype(np.int) - (mask_test > 0).astype(np.int)
+   
+    C[C<0] = 0
+    C = C > 0
+
+    for i in range(2):
+        mask_hair = morphology.erosion(mask_hair, np.ones((3,3)))
+        mask_color = morphology.erosion(mask_color, np.ones((3,3)))
+        
+    mI[mask_color] = 1
+    mI[mask_hair] = 1
+    mI[C] = 1
+    
+    
+    # plt.subplot(1, 3, 1)
+    # plt.imshow(mask_edge)
+    # plt.title('mask_edge')
+    #
+    # plt.subplot(1, 3, 2)
+    # plt.imshow(mask_color)
+    # plt.title('mask_color')
+    #
+    # plt.subplot(1, 3, 3)
+    # plt.imshow(mask_hair)
+    # plt.title('mask_hair')
+    #
+    # plt.show()
+
+    mI[:2 * h / 3, :w / 20] = 0
+    mI[:2 * h / 3, -w / 20:] = 0
+    # mI[h * 2 / 3:, (w / 2 - w / 4):(w / 2 + w / 4)] = 1
+    return mI
+
 
 def change_backgroud(src_path, save_path, speed_flag = 2, save_flag=1, show_flag=0):
     '''
@@ -183,7 +246,7 @@ def change_backgroud(src_path, save_path, speed_flag = 2, save_flag=1, show_flag
         I = I_src[::speed_flag, ::speed_flag]
         I = I.astype(np.double) / 255
 
-        mI = get_mI_test_temp(I)
+        mI = get_mask(I)
 
         consts_map = np.sum(np.abs(I - mI), axis=2) > 0.001
 
@@ -222,8 +285,8 @@ def change_backgroud(src_path, save_path, speed_flag = 2, save_flag=1, show_flag
     return "process succeed"
 
 if __name__ == '__main__':
-    srcPath = r'E:\PROGRAM\IMG_CUTTING\data\extr'
-    savePath = r'E:\PROGRAM\IMG_CUTTING\data\extr_res'
+    srcPath = r'E:\PROGRAM\IMG_CUTTING\data\data'
+    savePath = r'E:\PROGRAM\IMG_CUTTING\data\data_res'
     res = change_backgroud(src_path=srcPath,save_path=savePath,show_flag=1,save_flag=0,speed_flag=4)
     print res
     # pass
